@@ -29,6 +29,13 @@ static vector3 camPos;
 static vector3 camForward;
 static vector3 camRight;
 
+#define MSG_QUEUE_SIZE 256
+
+static OSMesgQueue msgQueue;
+static OSMesg msgBuffer[MSG_QUEUE_SIZE];
+
+static OSPiHandle* cartHandle;
+
 static TextureHeader* textureHdr;
 static u8* textureData;
 static u8 TextureHeap[1024 * 8];
@@ -51,6 +58,8 @@ void updateCamera(void){
 /* The initialization of stage 0 */
 void initStage00(void)
 {
+  OSIoMesg readMsg;
+
   triPos_x = 0.0;
   triPos_y = 0.0;
   triPos_z = 0.0;
@@ -62,13 +71,21 @@ void initStage00(void)
   camForward.x = 0; camForward.y = 0; camForward.z = 0;
   updateCamera();
 
+  //init cartdridge
+  osCreateMesgQueue(&msgQueue, msgBuffer, MSG_QUEUE_SIZE);
+  osCreatePiManager(OS_MESG_PRI_NORMAL, &msgQueue, msgBuffer, MSG_QUEUE_SIZE);
+
+  cartHandle = osCartRomInit();
+
   InitHeap(TextureHeap, 1024 * 8);
   //init header
   textureHdr = (TextureHeader*)malloc(8);
-  //memcpy(textureHdr, _z_texSegmentRomStart, 8);
+  nuPiReadRom(_z_texSegmentRomStart, textureHdr, 8);
+  //switch endian
+  textureHdr->magic = (((textureHdr->magic & 0xff) << 8) | ((textureHdr->magic & 0xff00) >> 8));
   //load data
-  //textureData = (u8*)malloc(textureHdr->width * textureHdr->height * 2);
-  //memcpy(textureData, _z_texSegmentRomStart + 8, textureHdr->width * textureHdr->height * 2);
+  textureData = (u8*)malloc(textureHdr->width * textureHdr->height * 4);
+  nuPiReadRom(_z_texSegmentRomStart + 8, textureData, textureHdr->width * textureHdr->height * 4);
 }
 
 /* Make the display list and activate the task */
@@ -76,7 +93,7 @@ void makeDL00(void)
 {
   vector3 tempPoint;
   Dynamic* dynamicp;
-  char conbuf[20]; 
+  char conbuf[32]; 
 
   /* Specify the display list buffer */
   dynamicp = &gfx_dynamic[gfx_gtask_no];
@@ -114,22 +131,17 @@ void makeDL00(void)
     {
       /* Change character representation positions */
       nuDebConTextPos(0,12,23);
-      sprintf(conbuf,"Pos_x=%5.1f",camForward.x);
+      sprintf(conbuf,"magic 0x%x", textureHdr->magic);
       nuDebConCPuts(0, conbuf);
-
       nuDebConTextPos(0,12,24);
-      sprintf(conbuf,"Pos_y=%5.1f",camForward.y);
+      sprintf(conbuf,"format %d", textureHdr->format);
       nuDebConCPuts(0, conbuf);
-
       nuDebConTextPos(0,12,25);
-      sprintf(conbuf,"Pos_z=%5.1f",camForward.z);
+      sprintf(conbuf,"width %u", textureHdr->width);
       nuDebConCPuts(0, conbuf);
-
-      if(1){
-        nuDebConTextPos(0,12,26);
-        sprintf(conbuf,"size 0x%x", _seqSegmentRomStart);
-        nuDebConCPuts(0, conbuf);
-      }
+      nuDebConTextPos(0,12,26);
+      sprintf(conbuf,"height %u", textureHdr->height);
+      nuDebConCPuts(0, conbuf);
 
     }
   else
@@ -190,16 +202,18 @@ void updateGame00(void)
 }
 
 /* The vertex coordinates for a box */
+#define TEX1 31 << 6
+#define TEX0 0 << 6
 static Vtx shade_vtx[] =  {
-        {        -8,  0, -8, 0, 0, 0, 0, 0xff, 0, 0xff	},   //0
-        {         8,  0, -8, 1, 0, 0, 0, 0, 0xff, 0xff	},   //1
-        {         8,  0, 8, 1, 1, 0, 0, 0xff, 0, 0xff	},     //2
-        {        -8,  0, 8, 0, 1, 0, 0, 0, 0xff, 0xff	},     //3
+        {        -8,  0, -8, 0, TEX0, TEX0, 0, 0xff, 0, 0xff	},   //0
+        {         8,  0, -8, 0, TEX1, TEX0, 0, 0, 0xff, 0xff	},   //1
+        {         8,  0, 8, 0, TEX1, TEX1, 0, 0xff, 0, 0xff	},     //2
+        {        -8,  0, 8, 0, TEX0, TEX1, 0, 0, 0xff, 0xff	},     //3
 
-        {        -8,  16, -8, 0, 0, 0, 0, 0, 0xff, 0xff },   //4
-        {         8,  16, -8, 1, 0, 0, 0, 0xff, 0, 0xff },   //5
-        {         8,  16, 8, 1, 1, 0, 0, 0, 0xff, 0xff },    //6
-        {        -8,  16, 8, 0, 1, 0, 0, 0xff, 0, 0xff },    //7
+        {        -8,  16, -8, 0, TEX0, TEX0, 0, 0, 0xff, 0xff },   //4
+        {         8,  16, -8, 0, TEX1, TEX0, 0, 0xff, 0, 0xff },   //5
+        {         8,  16, 8, 0, TEX1, TEX1, 0, 0, 0xff, 0xff },    //6
+        {        -8,  16, 8, 0, TEX0, TEX1, 0, 0xff, 0, 0xff },    //7
 };
 
 /* Drew a square */
@@ -214,24 +228,17 @@ void shadetri(Dynamic* dynamicp)
   gSPMatrix(glistp++,OS_K0_TO_PHYSICAL(&(dynamicp->modeling)),
 		G_MTX_MODELVIEW|G_MTX_MUL|G_MTX_NOPUSH);
 
-  //if(*((u16*)texturePtr) == 0xF00D){
-    //shade_vtx[0].;
-    //shade_vtx[0].cn[1] = 0xff;
-    //shade_vtx[0].cn[2] = 0xff;
-  //}
-
-  
   gDPPipeSync(glistp++);
   gDPSetCycleType(glistp++,G_CYC_1CYCLE);
-  gDPSetRenderMode(glistp++,G_RM_AA_ZB_OPA_SURF, G_RM_AA_ZB_OPA_SURF2);
+  gDPSetRenderMode(glistp++,G_RM_AA_ZB_OPA_DECAL, G_RM_AA_ZB_OPA_DECAL2);
   gSPClearGeometryMode(glistp++,0xFFFFFFFF);
   gSPSetGeometryMode(glistp++,G_SHADE | G_SHADING_SMOOTH | G_CULL_BACK | G_ZBUFFER);
   //set texture
-  //gSPTexture(glistp++, 0x8000, 0x8000, 0, 0, G_ON);
-  //gDPSetCombineMode(glistp++, G_CC_DECALRGBA, G_CC_DECALRGBA);
-  //gDPSetTextureFilter(glistp++, G_TF_BILERP);
-  //gDPLoadTextureBlock(glistp++, texturePtr, G_IM_FMT_RGBA, G_IM_SIZ_16b,
-  // 32, 32, 0, G_TX_WRAP, G_TX_WRAP, G_TX_NOMASK, G_TX_NOMASK, G_TX_NOLOD, G_TX_NOLOD);
+  gSPTexture(glistp++, 0x8000, 0x8000, 0, 0, G_ON);
+  gDPSetCombineMode(glistp++, G_CC_DECALRGBA, G_CC_DECALRGBA);
+  gDPSetTextureFilter(glistp++, G_TF_BILERP);
+  gDPLoadTextureBlock(glistp++, textureData, G_IM_FMT_RGBA, G_IM_SIZ_32b,
+   32, 32, 0, G_TX_CLAMP | G_TX_NOMIRROR, G_TX_CLAMP | G_TX_NOMIRROR, 5, 5, G_TX_NOLOD, G_TX_NOLOD);
   //set vertex
   gSPVertex(glistp++,&(shade_vtx[0]),8, 0);
   gSP2Triangles(glistp++,0,1,2,0,0,2,3,0);//bottom

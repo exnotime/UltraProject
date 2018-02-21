@@ -1,0 +1,11 @@
+﻿  Model.cpp
+c:\users\krunk\desktop\n64 converter\utility.h(22): warning C4244: 'return': conversion from '__int64' to 'int16_t', possible loss of data
+c:\users\krunk\desktop\n64 converter\model.cpp(13): warning C4267: 'initializing': conversion from 'size_t' to 'uint32_t', possible loss of data
+c:\users\krunk\desktop\n64 converter\model.cpp(29): warning C4267: 'initializing': conversion from 'size_t' to 'uint32_t', possible loss of data
+c:\users\krunk\desktop\n64 converter\model.cpp(38): warning C4267: 'initializing': conversion from 'size_t' to 'uint16_t', possible loss of data
+c:\users\krunk\desktop\n64 converter\model.cpp(82): warning C4244: '=': conversion from 'float' to 'unsigned char', possible loss of data
+c:\users\krunk\desktop\n64 converter\model.cpp(83): warning C4244: '=': conversion from 'float' to 'unsigned char', possible loss of data
+c:\users\krunk\desktop\n64 converter\model.cpp(84): warning C4244: '=': conversion from 'float' to 'unsigned char', possible loss of data
+c:\users\krunk\desktop\n64 converter\model.cpp(114): warning C4267: '=': conversion from 'size_t' to 'uint8_t', possible loss of data
+c:\users\krunk\desktop\n64 converter\model.cpp(115): warning C4267: '=': conversion from 'size_t' to 'uint16_t', possible loss of data
+  UltraConverter.vcxproj -> C:\Users\krunk\Desktop\n64 converter\solution\vs2017\projects\..\..\..\bin\debug\converter.exe

@@ -1,3 +1,6 @@
+*.sln
+*.vcxproj
+
 # Prerequisites
 *.d
 
