@@ -23,13 +23,14 @@ void ConvertModel(const char* file, const char* outputFile, ModelInputData data)
 	if (scene->HasMeshes()) {
 		uint32_t meshCount = scene->mNumMeshes;
 
+		uint32_t vertexOffset = 0;
 		uint32_t indexOffset = 0;
 		for (uint32_t m = 0; m < meshCount; ++m) {
 			MeshHeader meshHeader;
 			aiMesh* mesh = scene->mMeshes[m];
-			meshHeader.vertexCount = mesh->mNumVertices;
+			meshHeader.indexCount = mesh->mNumFaces * 3;
 
-			for (uint32_t v = 0; v < meshHeader.vertexCount; ++v) {
+			for (uint32_t v = 0; v < mesh->mNumVertices; ++v) {
 				UltraVertex vertex;
 				vertex.vtx_tc.pos[0] = EndianSwap((short)mesh->mVertices[v].x);
 				vertex.vtx_tc.pos[1] = EndianSwap((short)mesh->mVertices[v].y);
@@ -55,11 +56,17 @@ void ConvertModel(const char* file, const char* outputFile, ModelInputData data)
 			}
 			meshHeader.texture = mesh->mMaterialIndex;
 			for (uint32_t f = 0; f < mesh->mNumFaces; ++f) {
-				indices.push_back(indexOffset + mesh->mFaces[f].mIndices[0]);
-				indices.push_back(indexOffset + mesh->mFaces[f].mIndices[1]);
-				indices.push_back(indexOffset + mesh->mFaces[f].mIndices[2]);
+				indices.push_back(vertexOffset + mesh->mFaces[f].mIndices[0]);
+				indices.push_back(vertexOffset + mesh->mFaces[f].mIndices[1]);
+				indices.push_back(vertexOffset + mesh->mFaces[f].mIndices[2]);
 			}
-			indexOffset += meshHeader.vertexCount;
+
+			vertexOffset += mesh->mNumVertices;
+			indexOffset += mesh->mNumFaces * 3;
+			meshHeader.indexOffset = indexOffset;
+			//endian swap
+			meshHeader.indexCount = EndianSwap(meshHeader.indexCount);
+			meshHeader.indexOffset = EndianSwap(meshHeader.indexOffset);
 			meshes.push_back(meshHeader);
 		}
 	}
@@ -73,6 +80,8 @@ void ConvertModel(const char* file, const char* outputFile, ModelInputData data)
 	ModelHeader modelHeader;
 	modelHeader.meshCount = meshes.size();
 	modelHeader.vertexCount = outVertices.size();
+	//endian swap
+	modelHeader.vertexCount = EndianSwap(modelHeader.vertexCount);
 
 	//write file
 	FILE* fout = fopen(outputFile, "wb");

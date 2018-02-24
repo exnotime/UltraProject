@@ -45,8 +45,8 @@ struct ModelHeader {
 
 struct MeshHeader {
 	uint16_t magic = 0xDEAD;
-	uint16_t vertexCount;
-	uint16_t vertexOffset;
+	uint16_t indexCount;
+	uint16_t indexOffset;
 	uint8_t texture;
 	VertexType vertexType;
 };
