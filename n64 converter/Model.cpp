@@ -60,14 +60,15 @@ void ConvertModel(const char* file, const char* outputFile, ModelInputData data)
 				indices.push_back(vertexOffset + mesh->mFaces[f].mIndices[1]);
 				indices.push_back(vertexOffset + mesh->mFaces[f].mIndices[2]);
 			}
-
-			vertexOffset += mesh->mNumVertices;
-			indexOffset += mesh->mNumFaces * 3;
 			meshHeader.indexOffset = indexOffset;
+
 			//endian swap
 			meshHeader.indexCount = EndianSwap(meshHeader.indexCount);
 			meshHeader.indexOffset = EndianSwap(meshHeader.indexOffset);
 			meshes.push_back(meshHeader);
+
+			vertexOffset += mesh->mNumVertices;
+			indexOffset += mesh->mNumFaces * 3;
 		}
 	}
 	std::vector<UltraVertex> outVertices;
