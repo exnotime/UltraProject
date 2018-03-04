@@ -1,5 +1,6 @@
 *.sln
 *.vcxproj
+n64\ converter/solution
 
 # Prerequisites
 *.d
