@@ -7,6 +7,7 @@ typedef struct{
 	u16 vertexCount;
 	u8 meshCount;
 	u8 textureCount;
+	u16 padding;
 }ModelHeader;
 
 typedef struct {

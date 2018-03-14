@@ -29,6 +29,7 @@ struct UltraVertex_tc {
 typedef union {
 	UltraVertex_tn vtx_tn;
 	UltraVertex_tc vtx_tc;
+	long long int alignment;
 } UltraVertex;
 
 enum IndexType : uint8_t {
@@ -41,6 +42,7 @@ struct ModelHeader {
 	uint16_t vertexCount;
 	uint8_t meshCount;
 	uint8_t textureCount;
+	uint16_t padding = 0xDDDD;
 };
 
 struct MeshHeader {
@@ -48,7 +50,7 @@ struct MeshHeader {
 	uint16_t indexCount;
 	uint16_t indexOffset;
 	uint8_t texture;
-	VertexType vertexType;
+	uint8_t vertexType;
 };
 
 void ConvertModel(const char* file, const char* outputFile, ModelInputData data);

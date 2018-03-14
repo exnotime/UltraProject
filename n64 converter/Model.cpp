@@ -32,24 +32,32 @@ void ConvertModel(const char* file, const char* outputFile, ModelInputData data)
 
 			for (uint32_t v = 0; v < mesh->mNumVertices; ++v) {
 				UltraVertex vertex;
-				vertex.vtx_tc.pos[0] = EndianSwap((short)mesh->mVertices[v].x);
-				vertex.vtx_tc.pos[1] = EndianSwap((short)mesh->mVertices[v].y);
-				vertex.vtx_tc.pos[2] = EndianSwap((short)mesh->mVertices[v].z);
+				vertex.vtx_tc.pos[0] = EndianSwap((int16_t)mesh->mVertices[v].x);
+				vertex.vtx_tc.pos[1] = EndianSwap((int16_t)mesh->mVertices[v].y);
+				vertex.vtx_tc.pos[2] = EndianSwap((int16_t)mesh->mVertices[v].z);
+				
+				vertex.vtx_tc.flags = 0;
 
 				vertex.vtx_tc.uv[0] = EndianSwap(FloatToFixedS_10_5(mesh->mTextureCoords[0][v].x));
 				vertex.vtx_tc.uv[1] = EndianSwap(FloatToFixedS_10_5(mesh->mTextureCoords[0][v].y));
 
 				if (mesh->HasVertexColors(0)) {
-					vertex.vtx_tc.color[0] = mesh->mColors[0][v].r * 255;
-					vertex.vtx_tc.color[1] = mesh->mColors[0][v].g * 255;
-					vertex.vtx_tc.color[2] = mesh->mColors[0][v].b * 255;
+					vertex.vtx_tc.color[0] = mesh->mColors[0][v].r * 255U;
+					vertex.vtx_tc.color[1] = mesh->mColors[0][v].g * 255U;
+					vertex.vtx_tc.color[2] = mesh->mColors[0][v].b * 255U;
 					meshHeader.vertexType = COLORS;
 				}
 				else if (mesh->HasNormals()) {
-					vertex.vtx_tn.normal[0] = (int8_t)(mesh->mNormals[v].x * 128);
-					vertex.vtx_tn.normal[1] = (int8_t)(mesh->mNormals[v].y * 128);
-					vertex.vtx_tn.normal[2] = (int8_t)(mesh->mNormals[v].z * 128);
+					vertex.vtx_tn.normal[0] = (int8_t)(mesh->mNormals[v].x * 128U);
+					vertex.vtx_tn.normal[1] = (int8_t)(mesh->mNormals[v].y * 128U);
+					vertex.vtx_tn.normal[2] = (int8_t)(mesh->mNormals[v].z * 128U);
 					meshHeader.vertexType = NORMALS;
+				}
+				else{
+					vertex.vtx_tc.color[0] = rand() % 255;
+					vertex.vtx_tc.color[1] = rand() % 255;
+					vertex.vtx_tc.color[2] = rand() % 255;
+					meshHeader.vertexType = COLORS;
 				}
 				vertex.vtx_tc.alpha = 255;
 				vertices.push_back(vertex);

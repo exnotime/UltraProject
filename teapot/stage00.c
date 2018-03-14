@@ -30,6 +30,8 @@ static vector3 camPos;
 static vector3 camForward;
 static vector3 camRight;
 
+static Light sun;
+
 #define MSG_QUEUE_SIZE 256
 
 static OSMesgQueue msgQueue;
@@ -42,7 +44,7 @@ static u8 modelHeap[HEAP_SIZE]; //allocate 1 megabyte for the heap
 
 static u16 perspNorm;
 /* Declaration of the prototype */
-void shadetri(Dynamic* dynamicp);
+int shadetri(Dynamic* dynamicp);
 
 //update camera
 void updateCamera(void){
@@ -78,11 +80,21 @@ void initStage00(void)
   InitHeap(modelHeap, HEAP_SIZE);
 
   LoadModel(_teapotSegmentRomStart, &teapotModel);
+  sun.l.col[0] = 255;
+  sun.l.col[1] = 45;
+  sun.l.col[2] = 180;
+  sun.l.colc[0] = 255;
+  sun.l.colc[1] = 32;
+  sun.l.colc[2] = 32;
+  sun.l.dir[0] = 25;
+  sun.l.dir[1] = 127;
+  sun.l.dir[2] = 25;
 }
 
 /* Make the display list and activate the task */
 void makeDL00(void)
 {
+  int shadedTris = 0;
   vector3 tempPoint;
   Dynamic* dynamicp;
   char conbuf[32]; 
@@ -98,7 +110,7 @@ void makeDL00(void)
   gfxClearCfb();
 
   guPerspective(&dynamicp->projection,& perspNorm, 45.0F, 1.3F, 0.1F, 512.0F, 1.0F);
-  //guRotate(&dynamicp->modeling, theta, 0.0F, 1.0F, 0.0F);
+  //guRotate(&dynamicp->modeling, theta, 1.0F, 0.0F, 0.0F);
   guMtxIdent(&dynamicp->modeling);
   guTranslate(&dynamicp->translate, triPos_x, triPos_y, triPos_z);
 
@@ -106,7 +118,7 @@ void makeDL00(void)
   guLookAt(&dynamicp->camera, camPos.x, camPos.y, camPos.z, tempPoint.x,tempPoint.y,tempPoint.z, 0.0F, 1.0F, 0.0F);
 
   /*  Draw a square */
-  shadetri(dynamicp);
+  shadedTris = shadetri(dynamicp);
 
   gDPFullSync(glistp++);
   gSPEndDisplayList(glistp++);
@@ -127,7 +139,7 @@ void makeDL00(void)
   sprintf(conbuf,"vertex count %u", teapotModel.header.vertexCount);
   nuDebConCPuts(0, conbuf);
   nuDebConTextPos(0,12,25);
-  sprintf(conbuf,"mesh count %u", teapotModel.header.meshCount);
+  sprintf(conbuf,"mesh count %d", shadedTris);
   nuDebConCPuts(0, conbuf);
     
   /* Draw characters on the frame buffer */
@@ -181,15 +193,25 @@ void updateGame00(void)
   //theta += vel;
 }
 
+int max(int a, int b){
+  return a > b ? a : b;
+}
+
+int min(int a, int b){
+  return a < b ? a : b;
+}
+
 /* Drew a square */
-void shadetri(Dynamic* dynamicp)
+int shadetri(Dynamic* dynamicp)
 {
   int i;
   int k;
-  const int clusterSize = 15;
+  const int clusterSize = 12;
   const int trisPerCluster = clusterSize / 3;
-  const int clusterCount = ((teapotModel.header.vertexCount / 3) / clusterSize);
-
+  int clustersLeft = (teapotModel.header.vertexCount / clusterSize) + 1;
+  int trisLeft = (teapotModel.header.vertexCount / 3);
+  int clusterTris = min(trisLeft, trisPerCluster);
+  int shadedTris = 0;
 
   gSPMatrix(glistp++,OS_K0_TO_PHYSICAL(&(dynamicp->projection)),
 		G_MTX_PROJECTION|G_MTX_LOAD|G_MTX_NOPUSH);
@@ -204,7 +226,9 @@ void shadetri(Dynamic* dynamicp)
   gDPSetCycleType(glistp++,G_CYC_1CYCLE);
   gDPSetRenderMode(glistp++,G_RM_AA_ZB_OPA_SURF, G_RM_AA_ZB_OPA_SURF2);
   gSPClearGeometryMode(glistp++,0xFFFFFFFF);
-  gSPSetGeometryMode(glistp++,G_SHADE | G_SHADING_SMOOTH | G_CULL_BACK | G_ZBUFFER);
+  gSPSetGeometryMode(glistp++,G_SHADE | G_LIGHTING | G_CULL_BACK | G_ZBUFFER);
+  gSPLight(glistp++, &sun, 1);
+  gSPNumLights(glistp++, NUMLIGHTS_1);
   //set texture
   //gSPTexture(glistp++, 0x8000, 0x8000, 0, 0, G_ON);
   //gDPSetCombineMode(glistp++, G_CC_DECALRGBA, G_CC_DECALRGBA);
@@ -212,11 +236,19 @@ void shadetri(Dynamic* dynamicp)
   //gDPLoadTextureBlock(glistp++, textureData, G_IM_FMT_RGBA, G_IM_SIZ_32b,
   // 32, 32, 0, G_TX_CLAMP | G_TX_NOMIRROR, G_TX_CLAMP | G_TX_NOMIRROR, 5, 5, G_TX_NOLOD, G_TX_NOLOD);
 
-  //set vertex
-  for(k = 0; k < clusterCount; ++k){
-    gSPVertex(glistp++,&(teapotModel.vertices[k * clusterSize]), clusterSize, 0);
-    for(i = 0; i < trisPerCluster; ++i){
-      gSP1Triangle(glistp++, i + 0, i + 1, i + 2, 0);
+  k = 0;
+  do
+  {
+    gSPVertex(glistp++,&(teapotModel.vertices[k]), clusterTris * 3, 0);
+    for(i = 0; i < clusterTris; i++){
+      gSP1Triangle(glistp++, (i * 3) + 0, (i * 3) + 1, (i * 3) + 2, 0);
+      shadedTris++;
     }
-  }
+    trisLeft -= clusterTris;
+    clusterTris = min(trisLeft, trisPerCluster);
+    clustersLeft--;
+    k += clusterTris * 3;
+  } while(clustersLeft);
+
+  return shadedTris;
 }
